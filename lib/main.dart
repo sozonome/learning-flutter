@@ -1,6 +1,7 @@
-import 'package:english_words/english_words.dart';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(MyApp());
@@ -12,96 +13,76 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Nathan',
       theme: ThemeData(primaryColor: Colors.white),
-      home: DemoPage(),
+      home: AlbumPage(),
     );
   }
 }
 
-class DemoPage extends StatelessWidget {
-  launchURL() {
-    launch('https://sznm.dev');
-  }
+class Album {
+  final int userId;
+  final int id;
+  final String title;
 
+  Album({required this.userId, required this.id, required this.title});
+
+  factory Album.fromJson(Map<String, dynamic> json) {
+    return Album(userId: json['userId'], id: json['id'], title: json["title"]);
+  }
+}
+
+class AlbumPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return RandomWords();
+    return AlbumContainer();
   }
 }
 
-class RandomWords extends StatefulWidget {
-  const RandomWords({Key? key}) : super(key: key);
+class AlbumContainer extends StatefulWidget {
+  const AlbumContainer({Key? key}) : super(key: key);
 
   @override
-  _RandomWordsState createState() => _RandomWordsState();
+  _AlbumState createState() => _AlbumState();
 }
 
-class _RandomWordsState extends State<RandomWords> {
-  final _suggestions = <WordPair>[];
-  final _saved = <WordPair>{};
-  final _biggerFont = TextStyle(fontSize: 18);
+Future<Album> fetchAlbum() async {
+  final response = await http
+      .get(Uri.parse('https://jsonplaceholder.typicode.com/albums/1'));
 
-  void _pushSaved() {
-    Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (BuildContext context) {
-      final tiles = _saved.map((WordPair pair) {
-        return ListTile(title: Text(pair.asPascalCase, style: _biggerFont));
-      });
-      final divided =
-          ListTile.divideTiles(context: context, tiles: tiles).toList();
+  if (response.statusCode == 200) {
+    return Album.fromJson(jsonDecode(response.body));
+  } else {
+    throw Exception('Failed');
+  }
+}
 
-      return Scaffold(
-          appBar: AppBar(title: Text('Saved Suggestions')),
-          body: ListView(children: divided));
-    }));
+class _AlbumState extends State<AlbumContainer> {
+  late Future<Album> futureAlbum;
+
+  @override
+  void initState() {
+    super.initState();
+    futureAlbum = fetchAlbum();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Test'),
-        actions: [IconButton(icon: Icon(Icons.list), onPressed: _pushSaved)],
+      appBar: AppBar(title: Text('Album')),
+      body: Center(
+        child: FutureBuilder<Album>(
+          future: futureAlbum,
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              return Text(
+                  "title: ${snapshot.data!.title}, id: ${snapshot.data!.id}");
+            } else if (snapshot.hasError) {
+              return Text("${snapshot.error}");
+            }
+
+            return CircularProgressIndicator();
+          },
+        ),
       ),
-      body: _buildSuggestions(),
-    );
-  }
-
-  Widget _buildSuggestions() {
-    return ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemBuilder: (BuildContext _context, int i) {
-          if (i.isOdd) {
-            return Divider();
-          }
-
-          final int index = i ~/ 2;
-
-          if (index >= _suggestions.length) {
-            _suggestions.addAll(generateWordPairs().take(10));
-          }
-          return _buildRow(_suggestions[index]);
-        });
-  }
-
-  Widget _buildRow(WordPair pair) {
-    final alreadySaved = _saved.contains(pair);
-
-    return ListTile(
-      title: Text(
-        pair.asPascalCase,
-        style: _biggerFont,
-      ),
-      trailing: Icon(alreadySaved ? Icons.favorite : Icons.favorite_border,
-          color: alreadySaved ? Colors.red : null),
-      onTap: () {
-        setState(() {
-          if (alreadySaved) {
-            _saved.remove(pair);
-          } else {
-            _saved.add(pair);
-          }
-        });
-      },
     );
   }
 }

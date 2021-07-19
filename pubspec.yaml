@@ -26,6 +26,7 @@ dependencies:
   css_colors: ^1.1.1
   cupertino_icons: ^1.0.2
   english_words: ^4.0.0
+  http: ^0.13.3
   url_launcher: ^6.0.9
 
 dev_dependencies:
